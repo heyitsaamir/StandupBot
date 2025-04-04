@@ -1,13 +1,12 @@
-/** @type {import('tsup').Options} */
-module.exports = {
-  dts: true,
-  minify: false,
-  bundle: false,
+import { defineConfig } from "tsup";
+
+export default defineConfig({
+  entry: ["src/**/*.ts"], // This will pick up all .ts files in src
+  format: ["cjs"],
+  splitting: false,
   sourcemap: true,
-  treeshake: true,
-  splitting: true,
   clean: true,
-  outDir: 'dist',
-  entry: ['src/index.ts'],
-  format: ['cjs'],
-};
+  dts: true,
+  outDir: "dist",
+  noExternal: [/.*/], // This bundles all dependencies
+});

@@ -7,3 +7,7 @@ node_modules
 **/*.env.*
 
 appPackage/build/
+
+dist/
+
+dist.zip
