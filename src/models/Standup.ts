@@ -1,5 +1,3 @@
-import { ChatPrompt } from "@microsoft/spark.ai";
-import { OpenAIChatModel } from "@microsoft/spark.openai";
 import { PersistentStandupService } from "../services/PersistentStandupService";
 import { StandupGroupManager } from "../services/StandupGroupManager";
 import { IStandupStorage } from "../services/Storage";
@@ -10,36 +8,9 @@ import { Result, StandupResponse, User } from "./types";
 export class Standup {
   private persistentService: PersistentStandupService;
   private groupManager: StandupGroupManager;
-  private summaryChatPrompt: ChatPrompt;
-
   constructor() {
     this.persistentService = new PersistentStandupService();
     this.groupManager = new StandupGroupManager(this.persistentService);
-    this.summaryChatPrompt = new ChatPrompt({
-      instructions: `You are an expert standup summarizer. Summarize the standup responses. Categorize the responses of what was done and what is planned by each user. Then at the end of the summary, add a parking log section (if it exists), and list out the items that need to be discussed. Prioritize it by importance.
-        
-The format expected is:
-
-# Standup summary
-## Previous work:
-### **UserName**:
-  **Completed Work**:
-    1. Completed work item 1
-    2. Completed work item 2
-  **Planned Work**:
-    1. Planned work item 1
-    2. Planned work item 2
-# Parking Lot
-  - Parking lot item 1 (by UserName)
-  - Parking lot item 2 (by UserName)
-        `,
-      model: new OpenAIChatModel({
-        apiKey: process.env.AZURE_OPENAI_API_KEY,
-        endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-        apiVersion: process.env.AZURE_OPENAI_API_VERSION,
-        model: process.env.AZURE_OPENAI_MODEL_DEPLOYMENT_NAME!,
-      }),
-    });
   }
 
   async initialize(cosmosConnectionString: string): Promise<void> {
@@ -49,10 +20,12 @@ The format expected is:
   async registerGroup(
     conversationId: string,
     storage: IStandupStorage,
-    creator: User
+    creator: User,
+    tenantId: string
   ): Promise<Result<{ message: string }>> {
     const existingGroup = await this.persistentService.loadGroup(
-      conversationId
+      conversationId,
+      tenantId
     );
     if (existingGroup) {
       return {
@@ -64,7 +37,8 @@ The format expected is:
     const group = await this.groupManager.createGroup(
       conversationId,
       storage,
-      creator
+      creator,
+      tenantId
     );
     return {
       type: "success",
@@ -75,9 +49,10 @@ The format expected is:
 
   async addUsers(
     conversationId: string,
-    users: User[]
+    users: User[],
+    tenantId: string
   ): Promise<Result<{ message: string }>> {
-    const group = await this.validateGroup(conversationId);
+    const group = await this.validateGroup(conversationId, tenantId);
     if (!group) {
       return {
         type: "error",
@@ -116,9 +91,10 @@ The format expected is:
 
   async removeUsers(
     conversationId: string,
-    userIds: string[]
+    userIds: string[],
+    tenantId: string
   ): Promise<Result<{ message: string }>> {
-    const group = await this.validateGroup(conversationId);
+    const group = await this.validateGroup(conversationId, tenantId);
     if (!group) {
       return {
         type: "error",
@@ -161,9 +137,10 @@ The format expected is:
 
   async startStandup(
     conversationId: string,
+    tenantId: string,
     activityId?: string
   ): Promise<Result<{ message: string }>> {
-    const group = await this.validateGroup(conversationId);
+    const group = await this.validateGroup(conversationId, tenantId);
     if (!group) {
       return {
         type: "error",
@@ -197,9 +174,10 @@ The format expected is:
   async submitResponse(
     conversationId: string,
     response: StandupResponse,
+    tenantId: string,
     send?: (activity: any) => Promise<any>
   ): Promise<Result<{ message: string }>> {
-    const group = await this.validateGroup(conversationId);
+    const group = await this.validateGroup(conversationId, tenantId);
     if (!group) {
       return {
         type: "error",
@@ -260,9 +238,10 @@ The format expected is:
 
   async closeStandup(
     conversationId: string,
+    tenantId: string,
     sendSummary: boolean = true
   ): Promise<Result<{ message: string; summary?: string }>> {
-    const group = await this.validateGroup(conversationId);
+    const group = await this.validateGroup(conversationId, tenantId);
     if (!group) {
       return {
         type: "error",
@@ -293,16 +272,22 @@ The format expected is:
       const user = users.find((u: User) => u.id === r.userId);
       return {
         userName: user ? user.name : "Unknown",
-        completedWork: r.completedWork,
-        plannedWork: r.plannedWork,
-        parkingLot: r.parkingLot,
+        completedWork: Array.isArray(r.completedWork)
+          ? r.completedWork
+          : [r.completedWork],
+        plannedWork: Array.isArray(r.plannedWork)
+          ? r.plannedWork
+          : [r.plannedWork],
+        parkingLot: r.parkingLot
+          ? Array.isArray(r.parkingLot)
+            ? r.parkingLot
+            : [r.parkingLot]
+          : undefined,
       };
     });
 
-    const chatSummary = await this.summaryChatPrompt.send(
-      `Generate a summary of the standup: ${JSON.stringify(formattedResponses)}`
-    );
-    const chatSummaryText = chatSummary.content;
+    // Build summary manually
+    const summaryText = this.buildSummary(formattedResponses);
 
     // Persist to group's storage
     const persistResult = await group.persistStandup();
@@ -313,7 +298,7 @@ The format expected is:
         type: "success",
         data: {
           message,
-          summary: chatSummaryText,
+          summary: summaryText,
         },
         message,
       };
@@ -323,22 +308,67 @@ The format expected is:
       type: "success",
       data: {
         message: "Standup closed and saved successfully.",
-        summary: chatSummaryText,
+        summary: summaryText,
       },
       message: "Standup closed and saved successfully.",
     };
   }
 
-  async validateGroup(conversationId: string): Promise<StandupGroup | null> {
-    return await this.groupManager.loadGroup(conversationId);
+  private buildSummary(
+    responses: Array<{
+      userName: string;
+      completedWork: string[];
+      plannedWork: string[];
+      parkingLot?: string[];
+    }>
+  ): string {
+    let summary = "# Standup summary\n";
+
+    // Add each user's work
+    for (const response of responses) {
+      summary += `### **${response.userName}**:\n`;
+      summary += "  **Completed Work**:\n";
+      for (const work of response.completedWork) {
+        summary += `    - ${work}\n`;
+      }
+      summary += "\n  **Planned Work**:\n";
+      for (const work of response.plannedWork) {
+        summary += `    - ${work}\n`;
+      }
+      summary += "\n";
+    }
+
+    // Add parking lot if items exist
+    const parkingLotItems = responses
+      .filter((r) => r.parkingLot && r.parkingLot.length > 0)
+      .flatMap((r) =>
+        (r.parkingLot || []).map((item) => ({ item, user: r.userName }))
+      );
+
+    if (parkingLotItems.length > 0) {
+      summary += "# Parking Lot\n";
+      for (const { item, user } of parkingLotItems) {
+        summary += `  - ${item} (by ${user})\n`;
+      }
+    }
+
+    return summary;
+  }
+
+  async validateGroup(
+    conversationId: string,
+    tenantId: string
+  ): Promise<StandupGroup | null> {
+    return await this.groupManager.loadGroup(conversationId, tenantId);
   }
 
   async getGroupDetails(
-    conversationId: string
+    conversationId: string,
+    tenantId: string
   ): Promise<
     Result<{ members: User[]; isActive: boolean; storageType: string }>
   > {
-    const group = await this.validateGroup(conversationId);
+    const group = await this.validateGroup(conversationId, tenantId);
     if (!group) {
       return {
         type: "error",

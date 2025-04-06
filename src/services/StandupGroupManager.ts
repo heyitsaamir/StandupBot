@@ -41,15 +41,24 @@ export class StandupGroupManager {
   async createGroup(
     conversationId: string,
     storage: IStandupStorage,
-    creator: User
+    creator: User,
+    tenantId: string
   ): Promise<StandupGroup> {
-    const group = new StandupGroup(conversationId, storage, [creator]);
+    const group = new StandupGroup(conversationId, storage, tenantId, [
+      creator,
+    ]);
     await this.persistentService.saveGroup(group);
     return this.wrapGroup(group);
   }
 
-  async loadGroup(conversationId: string): Promise<StandupGroup | null> {
-    const group = await this.persistentService.loadGroup(conversationId);
+  async loadGroup(
+    conversationId: string,
+    tenantId: string
+  ): Promise<StandupGroup | null> {
+    const group = await this.persistentService.loadGroup(
+      conversationId,
+      tenantId
+    );
     if (!group) return null;
     return this.wrapGroup(group);
   }

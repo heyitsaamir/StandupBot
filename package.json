@@ -12,7 +12,7 @@
   "scripts": {
     "clean": "npx rimraf ./dist",
     "build": "npx tsup",
-    "postbuild": "cp package.json dist/package.json && cd dist && npm install --omit=dev",
+    "postbuild": "cp package.json dist/package.json && cp package-lock.json dist/package-lock.json",
     "start": "node .",
     "dev": "npx nodemon -w \"./src/**\" -e ts --exec \"node -r ts-node/register -r dotenv/config ./src/index.ts\"",
     "dev:teamsfx": "npx env-cmd --silent -f .env npm run dev",

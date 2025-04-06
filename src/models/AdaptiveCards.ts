@@ -21,7 +21,7 @@ export function createStandupCard(completedResponses: string[] = []): ICard {
       },
       {
         type: "TextBlock",
-        text: "Click your name to enter your standup update:",
+        text: "Enter your details by clicking the button below.",
         wrap: true,
       },
       ...(completedResponses.length > 0
@@ -134,6 +134,11 @@ export function createTaskModule(user: User): ICard {
         isMultiline: true,
         isRequired: true,
         style: "text",
+      },
+      {
+        type: "TextBlock",
+        text: "Parking Lot",
+        wrap: true,
       },
       {
         type: "Input.Text",

@@ -17,15 +17,13 @@ export class PersistentStandupService {
     private containerName: string = "Standups"
   ) {}
 
-  private getGroupStorageKey(conversationId: string): {
+  private getGroupStorageKey(group: StandupGroup): {
     id: string;
     tenantId: string;
   } {
-    // Extract tenant from conversation ID (format: tenantId:channelId)
-    const [tenantId = "default"] = conversationId.split(":");
     return {
-      id: conversationId,
-      tenantId,
+      id: group.conversationId,
+      tenantId: group.tenantId,
     };
   }
 
@@ -40,9 +38,16 @@ export class PersistentStandupService {
     >(this.databaseName, this.containerName, "/tenantId");
   }
 
-  async loadGroup(conversationId: string): Promise<StandupGroup | null> {
-    const key = this.getGroupStorageKey(conversationId);
-    const data = await this.storage.get(key.id);
+  async loadGroup(
+    conversationId: string,
+    tenantId: string
+  ): Promise<StandupGroup | null> {
+    // Use provided tenantId for lookup
+    const key = {
+      id: conversationId,
+      tenantId,
+    };
+    const data = await this.storage.get(key.id, key.tenantId);
     if (!data || data.type !== "group") return null;
 
     // Create NoStorage or OneNoteStorage based on stored config
@@ -58,6 +63,7 @@ export class PersistentStandupService {
     const group = new StandupGroup(
       conversationId,
       storage,
+      data.tenantId,
       data.users || [],
       data.activeResponses || [],
       data.isActive || false,
@@ -68,7 +74,7 @@ export class PersistentStandupService {
   }
 
   async saveGroup(group: StandupGroup): Promise<void> {
-    const key = this.getGroupStorageKey(group.conversationId);
+    const key = this.getGroupStorageKey(group);
     const [users, isActive, activeResponses, activeStandupActivityId] =
       await Promise.all([
         group.getUsers(),
@@ -105,6 +111,7 @@ export class PersistentStandupService {
     return new StandupGroup(
       group.conversationId,
       group.storage,
+      group.tenantId,
       users,
       activeResponses,
       isActive,
@@ -119,11 +126,11 @@ export class PersistentStandupService {
   }
 
   async addStandupHistory(
-    conversationId: string,
+    group: StandupGroup,
     summary: StandupSummary
   ): Promise<void> {
-    const key = this.getGroupStorageKey(conversationId);
-    const existingHistory = await this.storage.get(key.id);
+    const key = this.getGroupStorageKey(group);
+    const existingHistory = await this.storage.get(key.id, key.tenantId);
 
     const history: HistoryStorageItem = this.isHistoryItem(existingHistory)
       ? existingHistory
@@ -138,9 +145,9 @@ export class PersistentStandupService {
     await this.storage.set(key.id, history);
   }
 
-  async getStandupHistory(conversationId: string): Promise<StandupSummary[]> {
-    const key = this.getGroupStorageKey(conversationId);
-    const history = await this.storage.get(key.id);
+  async getStandupHistory(group: StandupGroup): Promise<StandupSummary[]> {
+    const key = this.getGroupStorageKey(group);
+    const history = await this.storage.get(key.id, key.tenantId);
     return this.isHistoryItem(history) ? history.summaries : [];
   }
 }

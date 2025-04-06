@@ -17,7 +17,11 @@ export async function executeAddUsers(
     name: mention.name,
   }));
 
-  const result = await standup.addUsers(conversationId, users);
+  const result = await standup.addUsers(
+    conversationId,
+    users,
+    context.tenantId
+  );
   await send(result.type === "success" ? result.data.message : result.message);
 }
 
@@ -33,7 +37,11 @@ export async function executeRemoveUsers(
   }
 
   const userIds = mentions.map((mention) => mention.id);
-  const result = await standup.removeUsers(conversationId, userIds);
+  const result = await standup.removeUsers(
+    conversationId,
+    userIds,
+    context.tenantId
+  );
   await send(result.type === "success" ? result.data.message : result.message);
 }
 
@@ -43,7 +51,10 @@ export async function executeGroupDetails(
 ) {
   const { send, conversationId } = context;
 
-  const result = await standup.getGroupDetails(conversationId);
+  const result = await standup.getGroupDetails(
+    conversationId,
+    context.tenantId
+  );
   if (result.type === "error") {
     await send(result.message);
     return;

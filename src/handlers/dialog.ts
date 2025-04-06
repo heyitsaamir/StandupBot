@@ -44,6 +44,7 @@ export async function handleDialogSubmit(
   const result = await standup.submitResponse(
     conversationId,
     standupResponse,
+    activity.conversation.tenantId || "unknown",
     send
   );
 

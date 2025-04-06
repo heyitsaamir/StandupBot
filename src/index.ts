@@ -6,15 +6,19 @@ import { handleMessage } from "./handlers/message";
 import { ensureStandupInitialized } from "./utils/initializeStandup";
 
 const app = new App({
-  plugins: process.env.NODE_ENV === "development" ? [new DevtoolsPlugin()] : [],
+  plugins: [new DevtoolsPlugin()],
 });
 
 // Handle incoming messages
 app.on(
   "message",
   async ({ send, activity, isSignedIn, signin, signout, api }) => {
+    console.log("Received message:", activity);
     const standup = await ensureStandupInitialized({ send });
-    if (!standup) return;
+    if (!standup) {
+      console.log("Standup not initialized");
+      return;
+    }
 
     await handleMessage(activity, send, false, signin, api, standup);
   }

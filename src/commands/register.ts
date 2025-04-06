@@ -12,7 +12,7 @@ export async function executeRegister(
   const { send, conversationId, userId, userName, api } = context;
 
   // Check if group already exists
-  if (await standup.validateGroup(conversationId)) {
+  if (await standup.validateGroup(conversationId, context.tenantId)) {
     await send("A standup group is already registered for this conversation.");
     return;
   }
@@ -25,7 +25,8 @@ export async function executeRegister(
       {
         id: userId,
         name: userName,
-      }
+      },
+      context.tenantId
     );
     await send(
       result.type === "success" ? result.data.message : result.message

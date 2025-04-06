@@ -5,6 +5,7 @@ export class StandupGroup {
   constructor(
     public readonly conversationId: string,
     public readonly storage: IStandupStorage,
+    public readonly tenantId: string,
     private users: User[] = [],
     private activeResponses: StandupResponse[] = [],
     private isActive: boolean = false,

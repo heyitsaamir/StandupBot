@@ -1,42 +1,45 @@
 import { Container, CosmosClient, PartitionKeyDefinition } from "@azure/cosmos";
 import { StandupResponse, User } from "../models/types";
 
-export interface IStorage<TKey = any, TValue = any> {
-  get(key: TKey): TValue | undefined | Promise<TValue | undefined>;
-  set(key: TKey, value: TValue & { id: string }): void | Promise<void>;
-  delete(key: TKey, partitionKey: string): void | Promise<void>;
+export interface IStorage<
+  TKey = any,
+  TValue extends BaseStorageItem = BaseStorageItem
+> {
+  get(
+    key: TKey,
+    tenantId?: string
+  ): TValue | undefined | Promise<TValue | undefined>;
+  set(key: TKey, value: TValue): void | Promise<void>;
+  delete(key: TKey, tenantId?: string): void | Promise<void>;
 }
 
-export class CosmosStorage<TKey extends string | number = string, TValue = any>
-  implements IStorage<TKey, TValue>
+export class CosmosStorage<
+  TKey extends string | number = string,
+  TValue extends BaseStorageItem = BaseStorageItem
+> implements IStorage<TKey, TValue>
 {
-  constructor(
-    private container: Container,
-    private partitionKeyPath: string = "/id"
-  ) {}
+  constructor(private container: Container, private partitionKeyPath: string) {}
 
-  async get(key: TKey): Promise<TValue | undefined> {
+  async get(key: TKey, tenantId: string): Promise<TValue | undefined> {
     try {
-      // Use partition key if available in the item
-      const { resources } = await this.container.items
-        .query({
-          query: "SELECT * FROM c WHERE c.id = @id AND IS_DEFINED(c.tenantId)",
-          parameters: [{ name: "@id", value: key.toString() }],
-        })
-        .fetchAll();
-      return resources.length > 0 ? resources[0] : undefined;
+      const item = this.container.item(key.toString(), tenantId);
+      const { resource } = await item.read<TValue>();
+      return resource;
     } catch (error) {
       if ((error as any).code === 404) return undefined;
       throw error;
     }
   }
 
-  async set(key: TKey, value: TValue & { id: string }): Promise<void> {
+  async set(key: TKey, value: TValue): Promise<void> {
+    if (!value.tenantId) {
+      throw new Error("tenantId is required for partition key");
+    }
     await this.container.items.upsert(value);
   }
 
-  async delete(key: TKey, partitionKey: string): Promise<void> {
-    await this.container.item(key.toString(), partitionKey).delete();
+  async delete(key: TKey, tenantId: string): Promise<void> {
+    await this.container.item(key.toString(), tenantId).delete();
   }
 }
 
@@ -48,7 +51,10 @@ export class CosmosStorageFactory {
     this.client = new CosmosClient(connectionString);
   }
 
-  static async getStorage<TKey extends string | number = string, TValue = any>(
+  static async getStorage<
+    TKey extends string | number = string,
+    TValue extends BaseStorageItem = BaseStorageItem
+  >(
     databaseName: string,
     containerName: string,
     partitionKeyPath: string = "/id"

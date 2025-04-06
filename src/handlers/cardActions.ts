@@ -44,7 +44,8 @@ export async function handleCardAction(
         {
           id: activity.from.id,
           name: activity.from.name,
-        }
+        },
+        activity.conversation.tenantId || "unknown"
       );
 
       const message =
@@ -69,6 +70,7 @@ export async function handleCardAction(
       const result = await standup.submitResponse(
         conversationId,
         standupResponse,
+        activity.conversation.tenantId || "unknown",
         send
       );
 
@@ -84,7 +86,10 @@ export async function handleCardAction(
     }
 
     case "close_standup": {
-      const result = await standup.closeStandup(conversationId);
+      const result = await standup.closeStandup(
+        conversationId,
+        activity.conversation.tenantId || "unknown"
+      );
       const message =
         result.type === "success" ? result.data.message : result.message;
 

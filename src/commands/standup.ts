@@ -8,10 +8,14 @@ export async function executeStartStandup(
   standup: Standup,
   shouldRestart = false
 ) {
-  const { send, conversationId } = context;
+  const { send, conversationId, tenantId } = context;
 
   if (shouldRestart) {
-    const closeResult = await standup.closeStandup(conversationId, false);
+    const closeResult = await standup.closeStandup(
+      conversationId,
+      tenantId,
+      false
+    );
     if (closeResult.type === "error") {
       await send(closeResult.message);
       return;
@@ -23,7 +27,11 @@ export async function executeStartStandup(
     attachments: [cardAttachment("adaptive", createStandupCard())],
   });
 
-  const result = await standup.startStandup(conversationId, sentActivity.id);
+  const result = await standup.startStandup(
+    conversationId,
+    tenantId,
+    sentActivity.id
+  );
   if (result.type === "error") {
     await send(result.message);
   }
@@ -33,9 +41,9 @@ export async function executeCloseStandup(
   context: CommandContext,
   standup: Standup
 ) {
-  const { send, conversationId } = context;
+  const { send, conversationId, tenantId } = context;
 
-  const result = await standup.closeStandup(conversationId);
+  const result = await standup.closeStandup(conversationId, tenantId);
   if (result.type === "error") {
     await send(result.message);
     return;

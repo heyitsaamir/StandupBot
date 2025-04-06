@@ -7,6 +7,7 @@ export interface CommandContext {
   mentions: Array<{ id: string; name: string }>;
   signin?: (options?: any) => Promise<any>;
   isSignedIn?: boolean;
+  tenantId: string;
 }
 
 export interface Command {

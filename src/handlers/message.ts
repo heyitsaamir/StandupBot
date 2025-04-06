@@ -1,5 +1,5 @@
 import { ChatPrompt } from "@microsoft/spark.ai";
-import { MentionEntity } from "@microsoft/spark.api";
+import { IMessageActivity, MentionEntity } from "@microsoft/spark.api";
 import { OpenAIChatModel } from "@microsoft/spark.openai";
 import { executeRegister } from "../commands/register";
 import { executeCloseStandup, executeStartStandup } from "../commands/standup";
@@ -24,7 +24,7 @@ const nlpPrompt = new ChatPrompt({
 });
 
 export async function handleMessage(
-  activity: any,
+  activity: IMessageActivity,
   send: (message: any) => Promise<any>,
   isSignedIn: boolean,
   signin: () => Promise<any>,
@@ -57,6 +57,7 @@ export async function handleMessage(
     userName: activity.from.name,
     api,
     mentions: mentions || [],
+    tenantId: activity.conversation.tenantId || "unknown",
   };
 
   const text = activity.text.toLowerCase().trim();
@@ -100,48 +101,62 @@ export async function handleMessage(
     return;
   }
 
+  let didExecuteSendInternally = false;
   try {
     // Register functions for natural language command interpretation
-    nlpPrompt.function(
-      "register",
-      "Register a new standup group",
-      async () => await executeRegister(context, standup, text)
-    );
+    nlpPrompt.function("register", "Register a new standup group", async () => {
+      didExecuteSendInternally = true;
+      await executeRegister(context, standup, text);
+    });
 
-    nlpPrompt.function(
-      "add",
-      "Add users to the standup group",
-      async () => await executeAddUsers(context, standup)
-    );
+    nlpPrompt.function("add", "Add users to the standup group", async () => {
+      didExecuteSendInternally = true;
+      await executeAddUsers(context, standup);
+    });
 
     nlpPrompt.function(
       "remove",
       "Remove users from the standup group",
-      async () => await executeRemoveUsers(context, standup)
+      async () => {
+        didExecuteSendInternally = true;
+        await executeRemoveUsers(context, standup);
+      }
     );
 
     nlpPrompt.function(
       "groupDetails",
       "Show standup group information",
-      async () => await executeGroupDetails(context, standup)
+      async () => {
+        didExecuteSendInternally = true;
+        await executeGroupDetails(context, standup);
+      }
     );
 
     nlpPrompt.function(
       "startStandup",
       "Start a new standup session",
-      async () => await executeStartStandup(context, standup)
+      async () => {
+        didExecuteSendInternally = true;
+        await executeStartStandup(context, standup);
+      }
     );
 
     nlpPrompt.function(
       "restartStandup",
       "Restart the current standup session",
-      async () => await executeStartStandup(context, standup, true)
+      async () => {
+        didExecuteSendInternally = true;
+        await executeStartStandup(context, standup, true);
+      }
     );
 
     nlpPrompt.function(
       "closeStandup",
       "End the current standup session",
-      async () => await executeCloseStandup(context, standup)
+      async () => {
+        didExecuteSendInternally = true;
+        await executeCloseStandup(context, standup);
+      }
     );
 
     nlpPrompt.function(
@@ -152,7 +167,10 @@ export async function handleMessage(
       }
     );
 
-    await nlpPrompt.send(text); // Let ChatPrompt decide which function to call based on the message
+    const result = await nlpPrompt.send(text); // Let ChatPrompt decide which function to call based on the message
+    if (!didExecuteSendInternally) {
+      await send(result.content);
+    }
   } catch (error) {
     console.error("Error processing natural language command:", error);
     await send(
