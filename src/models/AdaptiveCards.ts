@@ -5,7 +5,7 @@ import {
   TaskFetchAction,
   TaskFetchData,
 } from "@microsoft/spark.cards";
-import { User } from "./types";
+import { StandupResponse, User } from "./types";
 
 export function createStandupCard(
   completedResponses: string[] = [],
@@ -116,7 +116,10 @@ export function createPageSelectionCard(
   };
 }
 
-export function createTaskModule(user: User): ICard {
+export function createTaskModule(
+  user: User,
+  existingResponse?: StandupResponse
+): ICard {
   return {
     type: "AdaptiveCard",
     $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -140,6 +143,7 @@ export function createTaskModule(user: User): ICard {
         isMultiline: true,
         isRequired: true,
         style: "text",
+        value: existingResponse?.completedWork,
       },
       {
         type: "TextBlock",
@@ -153,6 +157,7 @@ export function createTaskModule(user: User): ICard {
         isMultiline: true,
         isRequired: true,
         style: "text",
+        value: existingResponse?.plannedWork,
       },
       {
         type: "TextBlock",
@@ -165,6 +170,7 @@ export function createTaskModule(user: User): ICard {
         placeholder: "Anything you want to discuss as a team?",
         isMultiline: true,
         style: "text",
+        value: existingResponse?.parkingLot,
       },
       {
         type: "ActionSet",

@@ -121,6 +121,27 @@ export class StandupGroup {
     return true;
   }
 
+  async addParkingLotItem(
+    userId: string,
+    parkingLot: string
+  ): Promise<boolean> {
+    const existingResponse = this.activeResponses.find(
+      (r) => r.userId === userId
+    );
+    if (existingResponse) {
+      existingResponse.parkingLot = parkingLot;
+    } else {
+      this.activeResponses.push({
+        userId,
+        parkingLot,
+        timestamp: new Date(),
+        completedWork: "",
+        plannedWork: "",
+      });
+    }
+    return true;
+  }
+
   async closeStandup(): Promise<StandupResponse[]> {
     if (!this.isActive) return [];
     this.isActive = false;

@@ -36,8 +36,12 @@ app.on(
 );
 
 // Handle dialog events
-app.on("dialog.open", async ({ activity }) => {
-  return handleDialogOpen(activity);
+app.on("dialog.open", async ({ activity, send }) => {
+  const standup = await ensureStandupInitialized({
+    send,
+  });
+  if (!standup) return;
+  return handleDialogOpen(activity, standup);
 });
 
 app.on("dialog.submit", async ({ activity, send }) => {

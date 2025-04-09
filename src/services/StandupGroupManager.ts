@@ -24,6 +24,7 @@ export class StandupGroupManager {
                 "removeUser",
                 "startStandup",
                 "addResponse",
+                "addParkingLotItem",
                 "closeStandup",
                 "setSaveHistory",
               ].includes(prop as string)

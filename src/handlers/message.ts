@@ -135,6 +135,56 @@ export async function handleMessage(
       await executeCloseStandup(context, standup);
       return;
     }
+
+    // New command for parking lot items
+    if (text.startsWith("!parkinglot")) {
+      const parkingLotItem = activity.text.slice("!parkinglot".length).trim();
+
+      // If no item provided, show current parking lot items
+      if (!parkingLotItem) {
+        const result = await standup.getParkingLotItems(
+          context.conversationId,
+          context.tenantId
+        );
+        if (result.type === "error") {
+          await partialContext.send(result.message);
+          return;
+        }
+
+        if (result.data.parkingLotItems.length === 0) {
+          await partialContext.send(
+            "No parking lot items have been added yet."
+          );
+          return;
+        }
+
+        let message = "# Current Parking Lot Items\n```\n";
+        result.data.parkingLotItems.forEach(({ item, userName }) => {
+          message += `• ${item} (by ${userName})\n`;
+        });
+        message += "```\n\nTo add an item: !parkinglot <your item here>";
+        await partialContext.send(message);
+        return;
+      }
+
+      // If item provided, add it to parking lot
+      const group = await standup.validateGroup(
+        context.conversationId,
+        context.tenantId
+      );
+      if (!group) {
+        await partialContext.send(
+          "No standup group registered. Use !register <onenote-link> to create one."
+        );
+        return;
+      }
+
+      await group.addParkingLotItem(context.userId, parkingLotItem);
+      await partialContext.send(
+        "Your parking lot item has been saved for the next standup."
+      );
+      return;
+    }
     return;
   }
 
@@ -260,11 +310,77 @@ export async function handleMessage(
     );
 
     nlpPrompt.function(
+      "viewParkingLot",
+      "View current parking lot items",
+      async () => {
+        didMessageUser = true;
+        console.log("Viewing parking lot items");
+        const result = await standup.getParkingLotItems(
+          context.conversationId,
+          context.tenantId
+        );
+
+        if (result.type === "error") {
+          await partialContext.send(result.message);
+          return;
+        }
+
+        if (result.data.parkingLotItems.length === 0) {
+          await partialContext.send(
+            "No parking lot items have been added yet."
+          );
+          return;
+        }
+
+        let message = "# Current Parking Lot Items\n```\n";
+        result.data.parkingLotItems.forEach(({ item, userName }) => {
+          message += `• ${item} (by ${userName})\n`;
+        });
+        message += "```";
+        await partialContext.send(message);
+      }
+    );
+
+    nlpPrompt.function(
+      "addParkingLot",
+      "Add an item to discuss in the next standup's parking lot",
+      {
+        type: "object",
+        properties: {
+          item: {
+            type: "string",
+            description: "The item to add to the parking lot",
+          },
+        },
+        required: ["item"],
+      },
+      async (args: { item: string }) => {
+        didMessageUser = true;
+        console.log("Adding parking lot item");
+        const group = await standup.validateGroup(
+          context.conversationId,
+          context.tenantId
+        );
+        if (!group) {
+          await partialContext.send(
+            "No standup group registered. Use !register <onenote-link> to create one."
+          );
+          return;
+        }
+
+        await group.addParkingLotItem(context.userId, args.item);
+        await partialContext.send(
+          "Your parking lot item has been saved for the next standup."
+        );
+      }
+    );
+
+    nlpPrompt.function(
       "purpose",
       "Explain the purpose of the bot",
       async () => {
         console.log("Explaining the purpose of the bot");
-        return `I can help you conduct standups by managing your standup group, adding or removing users, starting or closing standup sessions, and managing history settings.`;
+        return `I can help you conduct standups by managing your standup group, adding or removing users, starting or closing standup sessions, managing history settings, and saving parking lot items for future standups (use !parkinglot or just tell me what you want to discuss).`;
       }
     );
 

@@ -374,6 +374,40 @@ export class Standup {
     return await this.groupManager.loadGroup(conversationId, tenantId);
   }
 
+  async getParkingLotItems(
+    conversationId: string,
+    tenantId: string
+  ): Promise<
+    Result<{ parkingLotItems: Array<{ item: string; userName: string }> }>
+  > {
+    const group = await this.validateGroup(conversationId, tenantId);
+    if (!group) {
+      return {
+        type: "error",
+        message:
+          "No standup group registered. Use !register <onenote-link> to create one.",
+      };
+    }
+
+    const users = await group.getUsers();
+    const responses = await group.getActiveResponses();
+    const parkingLotItems = responses
+      .filter((r) => r.parkingLot)
+      .map((r) => {
+        const user = users.find((u) => u.id === r.userId);
+        return {
+          item: r.parkingLot!,
+          userName: user ? user.name : "Unknown",
+        };
+      });
+
+    return {
+      type: "success",
+      data: { parkingLotItems },
+      message: "Parking lot items retrieved successfully",
+    };
+  }
+
   async getGroupDetails(
     conversationId: string,
     tenantId: string
