@@ -272,17 +272,9 @@ export class Standup {
       const user = users.find((u: User) => u.id === r.userId);
       return {
         userName: user ? user.name : "Unknown",
-        completedWork: Array.isArray(r.completedWork)
-          ? r.completedWork
-          : [r.completedWork],
-        plannedWork: Array.isArray(r.plannedWork)
-          ? r.plannedWork
-          : [r.plannedWork],
-        parkingLot: r.parkingLot
-          ? Array.isArray(r.parkingLot)
-            ? r.parkingLot
-            : [r.parkingLot]
-          : undefined,
+        completedWork: r.completedWork,
+        plannedWork: r.plannedWork,
+        parkingLot: r.parkingLot,
       };
     });
 
@@ -317,42 +309,70 @@ export class Standup {
   private buildSummary(
     responses: Array<{
       userName: string;
-      completedWork: string[];
-      plannedWork: string[];
-      parkingLot?: string[];
+      completedWork: string;
+      plannedWork: string;
+      parkingLot?: string;
     }>
   ): string {
     let summary = "# Standup summary\n";
 
     // Add each user's work
-    for (const response of responses) {
+    responses.forEach((response, index) => {
       summary += `### **${response.userName}**:\n`;
-      summary += "  **Completed Work**:\n";
-      for (const work of response.completedWork) {
-        summary += `    - ${work}\n`;
+
+      // Format Completed Work as a list
+      summary += `  **Completed Work**:\n\n`; // Ensure two newlines before the list
+      const completedItems = response.completedWork
+        .split("\n")
+        .filter((item) => item.trim());
+      if (completedItems.length > 0) {
+        completedItems.forEach((item) => {
+          summary += `    - ${item.trim()}\n`;
+        });
+      } else {
+        summary += `    - (No completed work reported)\n`; // Handle empty input
       }
-      summary += "\n  **Planned Work**:\n";
-      for (const work of response.plannedWork) {
-        summary += `    - ${work}\n`;
+      summary += "\n"; // One newline after completed work list
+
+      // Format Planned Work as a list
+      summary += `  **Planned Work**:\n\n`; // Ensure two newlines before the list
+      const plannedItems = response.plannedWork
+        .split("\n")
+        .filter((item) => item.trim());
+      if (plannedItems.length > 0) {
+        plannedItems.forEach((item) => {
+          summary += `    - ${item.trim()}\n`;
+        });
+      } else {
+        summary += `    - (No planned work reported)\n`; // Handle empty input
       }
-      summary += "\n";
-    }
+
+      // Add two newlines between users, except after the last one if no parking lot follows
+      if (index < responses.length - 1) {
+        summary += "\n\n";
+      } else {
+        summary += "\n"; // Only one newline if it might be followed by parking lot
+      }
+    });
 
     // Add parking lot if items exist
-    const parkingLotItems = responses
-      .filter((r) => r.parkingLot && r.parkingLot.length > 0)
-      .flatMap((r) =>
-        (r.parkingLot || []).map((item) => ({ item, user: r.userName }))
-      );
+    const parkingLotItems = responses.flatMap(
+      (r) =>
+        r.parkingLot
+          ?.split("\n")
+          .map((item) => ({ parkingLotItem: item.trim(), user: r.userName }))
+          .filter((item) => item.parkingLotItem) ?? // Filter out empty items
+        []
+    );
 
     if (parkingLotItems.length > 0) {
-      summary += "# Parking Lot\n";
-      for (const { item, user } of parkingLotItems) {
-        summary += `  - ${item} (by ${user})\n`;
+      summary += "\n# Parking Lot\n"; // Add extra newline before Parking Lot heading if needed
+      for (const { parkingLotItem, user } of parkingLotItems) {
+        summary += `  - ${parkingLotItem} (by ${user})\n`;
       }
     }
 
-    return summary;
+    return summary.trim(); // Trim trailing whitespace
   }
 
   async validateGroup(

@@ -11,18 +11,6 @@ import {
 } from "../commands/users";
 import { Standup } from "../models/Standup";
 
-// Initialize ChatPrompt once for natural language commands
-const nlpPrompt = new ChatPrompt({
-  instructions:
-    "You are a standup bot assistant that understands natural language commands.",
-  model: new OpenAIChatModel({
-    apiKey: process.env.AZURE_OPENAI_API_KEY,
-    endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-    apiVersion: process.env.AZURE_OPENAI_API_VERSION,
-    model: process.env.AZURE_OPENAI_MODEL_DEPLOYMENT_NAME!,
-  }),
-});
-
 export async function handleMessage(
   activity: IMessageActivity,
   send: (message: any) => Promise<any>,
@@ -40,6 +28,18 @@ export async function handleMessage(
   //   await signin();
   //   return;
   // }
+
+  // Initialize ChatPrompt once for natural language commands
+  const nlpPrompt = new ChatPrompt({
+    instructions:
+      "You are a standup bot assistant that understands natural language commands.",
+    model: new OpenAIChatModel({
+      apiKey: process.env.AZURE_OPENAI_API_KEY,
+      endpoint: process.env.AZURE_OPENAI_ENDPOINT,
+      apiVersion: process.env.AZURE_OPENAI_API_VERSION,
+      model: process.env.AZURE_OPENAI_MODEL_DEPLOYMENT_NAME!,
+    }),
+  });
 
   const mentions = activity.entities
     ?.filter((e: any): e is MentionEntity => {

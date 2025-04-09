@@ -8,8 +8,6 @@ export async function handleDialogOpen(activity: any) {
     task: {
       type: "continue" as const,
       value: {
-        width: 400,
-        height: 400,
         title: "Standup Input",
         card: cardAttachment(
           "adaptive",
@@ -35,9 +33,9 @@ export async function handleDialogSubmit(
 
   const standupResponse: StandupResponse = {
     userId: activity.from.id,
-    completedWork: data.completedWork,
-    plannedWork: data.plannedWork,
-    parkingLot: data.parkingLot,
+    completedWork: data.completedWork.replace("\n", " \n"),
+    plannedWork: data.plannedWork.replace("\n", " \n"),
+    parkingLot: data.parkingLot.replace("\n", " \n"),
     timestamp: new Date(),
   };
 
