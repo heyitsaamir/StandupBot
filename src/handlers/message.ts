@@ -32,7 +32,7 @@ export async function handleMessage(
   // Initialize ChatPrompt once for natural language commands
   const nlpPrompt = new ChatPrompt({
     instructions:
-      "You are a standup bot assistant that understands natural language commands.",
+      "You are a standup bot assistant that understands natural language commands. Use the tools available to you to figure out what the user wants to do.",
     model: new OpenAIChatModel({
       apiKey: process.env.AZURE_OPENAI_API_KEY,
       endpoint: process.env.AZURE_OPENAI_ENDPOINT,
@@ -63,6 +63,7 @@ export async function handleMessage(
   const text = activity.text.toLowerCase().trim();
 
   if (text.startsWith("!")) {
+    console.log("Exact command detected ", text);
     // Handle direct commands with existing string matching
     if (text.includes("!register")) {
       await executeRegister(context, standup, text);
@@ -101,16 +102,18 @@ export async function handleMessage(
     return;
   }
 
-  let didExecuteSendInternally = false;
+  console.log("Natural language command detected ", text);
+  let fnExecuted: string | null = null;
   try {
     // Register functions for natural language command interpretation
     nlpPrompt.function("register", "Register a new standup group", async () => {
-      didExecuteSendInternally = true;
+      fnExecuted = "register";
       await executeRegister(context, standup, text);
     });
 
     nlpPrompt.function("add", "Add users to the standup group", async () => {
-      didExecuteSendInternally = true;
+      fnExecuted = "add";
+      console.log("Adding users to the standup group");
       await executeAddUsers(context, standup);
     });
 
@@ -118,7 +121,8 @@ export async function handleMessage(
       "remove",
       "Remove users from the standup group",
       async () => {
-        didExecuteSendInternally = true;
+        fnExecuted = "remove";
+        console.log("Removing users from the standup group");
         await executeRemoveUsers(context, standup);
       }
     );
@@ -127,7 +131,8 @@ export async function handleMessage(
       "groupDetails",
       "Show standup group information",
       async () => {
-        didExecuteSendInternally = true;
+        fnExecuted = "groupDetails";
+        console.log("Showing standup group information");
         await executeGroupDetails(context, standup);
       }
     );
@@ -136,7 +141,8 @@ export async function handleMessage(
       "startStandup",
       "Start a new standup session",
       async () => {
-        didExecuteSendInternally = true;
+        fnExecuted = "startStandup";
+        console.log("Starting a new standup session");
         await executeStartStandup(context, standup);
       }
     );
@@ -145,7 +151,8 @@ export async function handleMessage(
       "restartStandup",
       "Restart the current standup session",
       async () => {
-        didExecuteSendInternally = true;
+        fnExecuted = "restartStandup";
+        console.log("Restarting the current standup session");
         await executeStartStandup(context, standup, true);
       }
     );
@@ -154,7 +161,8 @@ export async function handleMessage(
       "closeStandup",
       "End the current standup session",
       async () => {
-        didExecuteSendInternally = true;
+        fnExecuted = "closeStandup";
+        console.log("Ending the current standup session");
         await executeCloseStandup(context, standup);
       }
     );
@@ -163,13 +171,18 @@ export async function handleMessage(
       "purpose",
       "Explain the purpose of the bot",
       async () => {
+        console.log("Explaining the purpose of the bot");
         return `I can help you conduct standups by managing your standup group, adding or removing users, and starting or closing standup sessions.`;
       }
     );
 
-    const result = await nlpPrompt.send(text); // Let ChatPrompt decide which function to call based on the message
-    if (!didExecuteSendInternally) {
+    const result = await nlpPrompt.send(text);
+    console.log("Result of the natural language command", result);
+    if (fnExecuted == null) {
+      console.log("Sending the result of the natural language command");
       await send(result.content);
+    } else {
+      console.log("Did not send the result of the natural language command");
     }
   } catch (error) {
     console.error("Error processing natural language command:", error);

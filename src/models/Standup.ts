@@ -318,41 +318,19 @@ export class Standup {
 
     // Add each user's work
     responses.forEach((response, index) => {
-      summary += `### **${response.userName}**:\n`;
+      summary += `**${response.userName}**\n`;
 
+      summary += "```\n"; // Block start
       // Format Completed Work as a list
-      summary += `  **Completed Work**:\n\n`; // Ensure two newlines before the list
-      const completedItems = response.completedWork
-        .split("\n")
-        .filter((item) => item.trim());
-      if (completedItems.length > 0) {
-        completedItems.forEach((item) => {
-          summary += `    - ${item.trim()}\n`;
-        });
-      } else {
-        summary += `    - (No completed work reported)\n`; // Handle empty input
-      }
-      summary += "\n"; // One newline after completed work list
-
-      // Format Planned Work as a list
-      summary += `  **Planned Work**:\n\n`; // Ensure two newlines before the list
-      const plannedItems = response.plannedWork
-        .split("\n")
-        .filter((item) => item.trim());
-      if (plannedItems.length > 0) {
-        plannedItems.forEach((item) => {
-          summary += `    - ${item.trim()}\n`;
-        });
-      } else {
-        summary += `    - (No planned work reported)\n`; // Handle empty input
+      if (response.completedWork) {
+        summary += `---\nCompleted Work:\n---\n${response.completedWork}\n`;
       }
 
-      // Add two newlines between users, except after the last one if no parking lot follows
-      if (index < responses.length - 1) {
-        summary += "\n\n";
-      } else {
-        summary += "\n"; // Only one newline if it might be followed by parking lot
+      if (response.plannedWork) {
+        summary += `---\nPlanned Work:\n---\n${response.plannedWork}\n`;
       }
+
+      summary += "```\n"; // Block end
     });
 
     // Add parking lot if items exist
@@ -366,10 +344,12 @@ export class Standup {
     );
 
     if (parkingLotItems.length > 0) {
-      summary += "\n# Parking Lot\n"; // Add extra newline before Parking Lot heading if needed
+      summary += "```\n"; // Block start
+      summary += "Parking Lot\n";
       for (const { parkingLotItem, user } of parkingLotItems) {
         summary += `  - ${parkingLotItem} (by ${user})\n`;
       }
+      summary += "```\n"; // Block end
     }
 
     return summary.trim(); // Trim trailing whitespace
