@@ -323,11 +323,11 @@ export class Standup {
       summary += "```\n"; // Block start
       // Format Completed Work as a list
       if (response.completedWork) {
-        summary += `---\nCompleted Work:\n---\n${response.completedWork}\n`;
+        summary += `Completed Work:\n---\n${response.completedWork}\n\n`;
       }
 
       if (response.plannedWork) {
-        summary += `---\nPlanned Work:\n---\n${response.plannedWork}\n`;
+        summary += `Planned Work:\n---\n${response.plannedWork}\n\n`;
       }
 
       summary += "```\n"; // Block end

@@ -29,13 +29,13 @@ export async function handleDialogSubmit(
   if (!standup) return;
 
   const conversationId = activity.conversation.id;
-  const data = activity.value.data;
+  const data = activity.value.data ?? {};
 
   const standupResponse: StandupResponse = {
     userId: activity.from.id,
-    completedWork: data.completedWork.replace("\n", " \n"),
-    plannedWork: data.plannedWork.replace("\n", " \n"),
-    parkingLot: data.parkingLot.replace("\n", " \n"),
+    completedWork: (data.completedWork ?? "").replace("\n", " \n"),
+    plannedWork: (data.plannedWork ?? "").replace("\n", " \n"),
+    parkingLot: (data.parkingLot ?? "").replace("\n", " \n"),
     timestamp: new Date(),
   };
 
