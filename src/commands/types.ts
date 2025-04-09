@@ -1,12 +1,16 @@
+import { IActivityContext } from "@microsoft/spark.apps";
+
 export interface CommandContext {
-  send: (message: any) => Promise<any>;
+  app: IActivityContext["app"];
+  send: IActivityContext["send"];
   conversationId: string;
   userId: string;
   userName: string;
-  api: any;
+  api: IActivityContext["api"];
   mentions: Array<{ id: string; name: string }>;
-  signin?: (options?: any) => Promise<any>;
-  isSignedIn?: boolean;
+  signin?: IActivityContext["signin"];
+  isSignedIn?: IActivityContext["isSignedIn"];
+  signout?: IActivityContext["signout"];
   tenantId: string;
 }
 

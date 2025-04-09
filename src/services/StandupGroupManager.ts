@@ -25,6 +25,7 @@ export class StandupGroupManager {
                 "startStandup",
                 "addResponse",
                 "closeStandup",
+                "setSaveHistory",
               ].includes(prop as string)
             ) {
               await this.persistentService.saveGroup(target);
@@ -42,11 +43,20 @@ export class StandupGroupManager {
     conversationId: string,
     storage: IStandupStorage,
     creator: User,
-    tenantId: string
+    tenantId: string,
+    saveHistory: boolean = false
   ): Promise<StandupGroup> {
-    const group = new StandupGroup(conversationId, storage, tenantId, [
-      creator,
-    ]);
+    const group = new StandupGroup(
+      conversationId,
+      storage,
+      tenantId,
+      this.persistentService,
+      [creator],
+      [],
+      false,
+      null,
+      saveHistory
+    );
     await this.persistentService.saveGroup(group);
     return this.wrapGroup(group);
   }

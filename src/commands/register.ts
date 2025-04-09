@@ -9,13 +9,15 @@ export async function executeRegister(
   standup: Standup,
   text: string
 ) {
-  const { send, conversationId, userId, userName, api } = context;
+  const { send, conversationId, userId, userName, api, app } = context;
 
   // Check if group already exists
   if (await standup.validateGroup(conversationId, context.tenantId)) {
     await send("A standup group is already registered for this conversation.");
     return;
   }
+
+  const includeHistory = text.includes("--history");
 
   if (!(text.includes("one") && text.includes("note"))) {
     // Create a new group with no storage if OneNote isn't specified
@@ -26,7 +28,8 @@ export async function executeRegister(
         id: userId,
         name: userName,
       },
-      context.tenantId
+      context.tenantId,
+      includeHistory
     );
     await send(
       result.type === "success" ? result.data.message : result.message
@@ -51,12 +54,12 @@ export async function executeRegister(
   const res = await api.conversations.create({
     tenantId: context.conversationId.split("/")[0],
     isGroup: false,
-    bot: { id: api.botId },
-    members: [{ id: userId, name: userName }],
+    bot: { id: context.app.botId },
+    members: [{ id: userId, name: userName, role: "user" }],
   });
 
   // Send page selection card to user in 1:1 chat
-  await api.send(res.id, {
+  await app.send(res.id, {
     type: "message",
     attachments: [
       {

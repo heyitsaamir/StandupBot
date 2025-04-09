@@ -20,7 +20,18 @@ app.on(
       return;
     }
 
-    await handleMessage(activity, send, false, signin, api, standup);
+    await handleMessage(
+      activity,
+      {
+        send,
+        signin,
+        api,
+        signout,
+        isSignedIn,
+        app,
+      },
+      standup
+    );
   }
 );
 

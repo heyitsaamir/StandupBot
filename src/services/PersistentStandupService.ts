@@ -4,20 +4,21 @@ import {
   CosmosStorageFactory,
   GroupStorageItem,
   HistoryStorageItem,
-  StandupStorageItem,
   StandupSummary,
 } from "./CosmosStorage";
 import { IStandupStorage, NoStorage } from "./Storage";
 
 export class PersistentStandupService {
-  private storage!: CosmosStorage<string, StandupStorageItem>;
+  private groupStorage!: CosmosStorage<string, GroupStorageItem>;
+  private historyStorage!: CosmosStorage<string, HistoryStorageItem>;
 
   constructor(
     private databaseName: string = "StandupDB",
-    private containerName: string = "Standups"
+    private groupContainer: string = "StandupGroups",
+    private historyContainer: string = "StandupHistory"
   ) {}
 
-  private getGroupStorageKey(group: StandupGroup): {
+  private getStorageKey(group: StandupGroup): {
     id: string;
     tenantId: string;
   } {
@@ -31,11 +32,16 @@ export class PersistentStandupService {
     // Initialize the CosmosDB client
     CosmosStorageFactory.initialize(connectionString);
 
-    // Get storage instance
-    this.storage = await CosmosStorageFactory.getStorage<
+    // Get storage instances for groups and history
+    this.groupStorage = await CosmosStorageFactory.getStorage<
       string,
-      StandupStorageItem
-    >(this.databaseName, this.containerName, "/tenantId");
+      GroupStorageItem
+    >(this.databaseName, this.groupContainer, "/tenantId");
+
+    this.historyStorage = await CosmosStorageFactory.getStorage<
+      string,
+      HistoryStorageItem
+    >(this.databaseName, this.historyContainer, "/tenantId");
   }
 
   async loadGroup(
@@ -43,12 +49,9 @@ export class PersistentStandupService {
     tenantId: string
   ): Promise<StandupGroup | null> {
     // Use provided tenantId for lookup
-    const key = {
-      id: conversationId,
-      tenantId,
-    };
-    const data = await this.storage.get(key.id, key.tenantId);
-    if (!data || data.type !== "group") return null;
+    const key = { id: conversationId, tenantId };
+    const data = await this.groupStorage.get(key.id, key.tenantId);
+    if (!data) return null;
 
     // Create NoStorage or OneNoteStorage based on stored config
     let storage: IStandupStorage;
@@ -64,90 +67,99 @@ export class PersistentStandupService {
       conversationId,
       storage,
       data.tenantId,
+      this,
       data.users || [],
       data.activeResponses || [],
       data.isActive || false,
-      data.activeStandupActivityId || null
+      data.activeStandupActivityId || null,
+      data.saveHistory || false
     );
 
     return this.wrapGroupData(group);
   }
 
   async saveGroup(group: StandupGroup): Promise<void> {
-    const key = this.getGroupStorageKey(group);
-    const [users, isActive, activeResponses, activeStandupActivityId] =
-      await Promise.all([
-        group.getUsers(),
-        group.isStandupActive(),
-        group.getActiveResponses(),
-        group.getActiveStandupActivityId(),
-      ]);
+    const key = this.getStorageKey(group);
+    const [
+      users,
+      isActive,
+      activeResponses,
+      activeStandupActivityId,
+      saveHistory,
+    ] = await Promise.all([
+      group.getUsers(),
+      group.isStandupActive(),
+      group.getActiveResponses(),
+      group.getActiveStandupActivityId(),
+      group.getSaveHistory(),
+    ]);
 
     const groupData: GroupStorageItem = {
       id: key.id,
       tenantId: key.tenantId,
-      type: "group" as const,
+      type: "group",
       users,
       isActive,
       activeResponses,
       activeStandupActivityId,
       storage: group.storage.getStorageInfo(),
+      saveHistory,
     };
 
-    await this.storage.set(key.id, groupData);
+    await this.groupStorage.set(key.id, groupData);
   }
 
   private async wrapGroupData(group: StandupGroup): Promise<StandupGroup> {
     // Get the initial state to store in CosmosDB
-    const [users, isActive, activeResponses, activeStandupActivityId] =
-      await Promise.all([
-        group.getUsers(),
-        group.isStandupActive(),
-        group.getActiveResponses(),
-        group.getActiveStandupActivityId(),
-      ]);
+    const [
+      users,
+      isActive,
+      activeResponses,
+      activeStandupActivityId,
+      saveHistory,
+    ] = await Promise.all([
+      group.getUsers(),
+      group.isStandupActive(),
+      group.getActiveResponses(),
+      group.getActiveStandupActivityId(),
+      group.getSaveHistory(),
+    ]);
 
     // Create a new group with the fetched data
     return new StandupGroup(
       group.conversationId,
       group.storage,
       group.tenantId,
+      this,
       users,
       activeResponses,
       isActive,
-      activeStandupActivityId
+      activeStandupActivityId,
+      saveHistory
     );
-  }
-
-  private isHistoryItem(
-    item: StandupStorageItem | undefined
-  ): item is HistoryStorageItem {
-    return !!item && item.type === "history";
   }
 
   async addStandupHistory(
     group: StandupGroup,
     summary: StandupSummary
   ): Promise<void> {
-    const key = this.getGroupStorageKey(group);
-    const existingHistory = await this.storage.get(key.id, key.tenantId);
+    const key = this.getStorageKey(group);
+    const existingHistory = await this.historyStorage.get(key.id, key.tenantId);
 
-    const history: HistoryStorageItem = this.isHistoryItem(existingHistory)
-      ? existingHistory
-      : {
-          id: key.id,
-          tenantId: key.tenantId,
-          type: "history" as const,
-          summaries: [],
-        };
+    const history: HistoryStorageItem = existingHistory || {
+      id: key.id,
+      tenantId: key.tenantId,
+      type: "history",
+      summaries: [],
+    };
 
     history.summaries.push(summary);
-    await this.storage.set(key.id, history);
+    await this.historyStorage.set(key.id, history);
   }
 
   async getStandupHistory(group: StandupGroup): Promise<StandupSummary[]> {
-    const key = this.getGroupStorageKey(group);
-    const history = await this.storage.get(key.id, key.tenantId);
-    return this.isHistoryItem(history) ? history.summaries : [];
+    const key = this.getStorageKey(group);
+    const history = await this.historyStorage.get(key.id, key.tenantId);
+    return history?.summaries || [];
   }
 }

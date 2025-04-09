@@ -110,7 +110,7 @@ export interface BaseStorageItem {
 }
 
 export interface GroupStorageItem extends BaseStorageItem {
-  type: "group";
+  readonly type: "group";
   users: User[];
   isActive: boolean;
   activeResponses: StandupResponse[];
@@ -119,11 +119,10 @@ export interface GroupStorageItem extends BaseStorageItem {
     targetId?: string;
   };
   activeStandupActivityId: string | null;
+  saveHistory: boolean;
 }
 
 export interface HistoryStorageItem extends BaseStorageItem {
-  type: "history";
+  readonly type: "history"; // Make type readonly since it's a constant
   summaries: StandupSummary[];
 }
-
-export type StandupStorageItem = GroupStorageItem | HistoryStorageItem;

@@ -22,19 +22,31 @@ export async function executeStartStandup(
     }
   }
 
-  const sentActivity = await send({
-    type: "message",
-    attachments: [cardAttachment("adaptive", createStandupCard())],
-  });
+  // Send initial message to get activity ID
+  const startMsg = await send("Starting standup...");
 
+  // Start standup with activity ID
   const result = await standup.startStandup(
     conversationId,
     tenantId,
-    sentActivity.id
+    startMsg.id
   );
+
   if (result.type === "error") {
     await send(result.message);
+    return;
   }
+
+  await send({
+    type: "message",
+    id: startMsg.id,
+    attachments: [
+      cardAttachment(
+        "adaptive",
+        createStandupCard([], result.data.previousParkingLot)
+      ),
+    ],
+  });
 }
 
 export async function executeCloseStandup(

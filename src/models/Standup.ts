@@ -21,7 +21,8 @@ export class Standup {
     conversationId: string,
     storage: IStandupStorage,
     creator: User,
-    tenantId: string
+    tenantId: string,
+    includeHistory: boolean = false
   ): Promise<Result<{ message: string }>> {
     const existingGroup = await this.persistentService.loadGroup(
       conversationId,
@@ -38,7 +39,8 @@ export class Standup {
       conversationId,
       storage,
       creator,
-      tenantId
+      tenantId,
+      includeHistory
     );
     return {
       type: "success",
@@ -139,7 +141,7 @@ export class Standup {
     conversationId: string,
     tenantId: string,
     activityId?: string
-  ): Promise<Result<{ message: string }>> {
+  ): Promise<Result<{ message: string; previousParkingLot?: string[] }>> {
     const group = await this.validateGroup(conversationId, tenantId);
     if (!group) {
       return {
@@ -163,10 +165,13 @@ export class Standup {
       };
     }
 
-    await group.startStandup(activityId);
+    const result = await group.startStandup(activityId);
     return {
       type: "success",
-      data: { message: "Starting standup..." },
+      data: {
+        message: "Starting standup...",
+        previousParkingLot: result.previousParkingLot,
+      },
       message: "Starting standup...",
     };
   }
@@ -210,14 +215,21 @@ export class Standup {
           return user ? user.name : "Unknown";
         });
 
-        // Update the original card with completed responses
+        // Get previous parking lot items from storage
+        const history = await this.persistentService.getStandupHistory(group);
+        const previousParkingLot =
+          history.length > 0
+            ? history[history.length - 1].parkingLot
+            : undefined;
+
+        // Update the original card with completed responses and maintain parking lot items
         await send({
           type: "message",
           id: activityId,
           attachments: [
             {
               contentType: "application/vnd.microsoft.card.adaptive",
-              content: createStandupCard(completedUsers),
+              content: createStandupCard(completedUsers, previousParkingLot),
             },
           ],
         });
@@ -344,8 +356,8 @@ export class Standup {
     );
 
     if (parkingLotItems.length > 0) {
+      summary += "# Parking Lot\n";
       summary += "```\n"; // Block start
-      summary += "Parking Lot\n";
       for (const { parkingLotItem, user } of parkingLotItems) {
         summary += `  - ${parkingLotItem} (by ${user})\n`;
       }

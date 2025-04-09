@@ -7,7 +7,10 @@ import {
 } from "@microsoft/spark.cards";
 import { User } from "./types";
 
-export function createStandupCard(completedResponses: string[] = []): ICard {
+export function createStandupCard(
+  completedResponses: string[] = [],
+  previousParkingLot?: string[]
+): ICard {
   return {
     type: "AdaptiveCard",
     $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -31,6 +34,22 @@ export function createStandupCard(completedResponses: string[] = []): ICard {
               text: `Completed responses: ${completedResponses.join(", ")}`,
               wrap: true,
               spacing: "medium" as const,
+            },
+          ]
+        : []),
+      ...(previousParkingLot && previousParkingLot.length > 0
+        ? [
+            {
+              type: "TextBlock" as const,
+              text: "Previous Parking Lot Items:",
+              wrap: true,
+              spacing: "medium" as const,
+            },
+            {
+              type: "TextBlock" as const,
+              text: previousParkingLot.map((item) => `• ${item}`).join("\n"),
+              wrap: true,
+              spacing: "small" as const,
             },
           ]
         : []),

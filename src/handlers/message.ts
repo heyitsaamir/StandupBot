@@ -13,10 +13,15 @@ import { Standup } from "../models/Standup";
 
 export async function handleMessage(
   activity: IMessageActivity,
-  send: (message: any) => Promise<any>,
-  isSignedIn: boolean,
-  signin: () => Promise<any>,
-  api: any,
+  partialContext: Omit<
+    CommandContext,
+    | "mentions"
+    | "activity"
+    | "conversationId"
+    | "userId"
+    | "userName"
+    | "tenantId"
+  >,
   standup: Standup
 ) {
   if (activity.text == null) {
@@ -51,11 +56,10 @@ export async function handleMessage(
     }));
 
   const context: CommandContext = {
-    send,
+    ...partialContext,
     conversationId: activity.conversation.id,
     userId: activity.from.id,
     userName: activity.from.name,
-    api,
     mentions: mentions || [],
     tenantId: activity.conversation.tenantId || "unknown",
   };
@@ -77,6 +81,38 @@ export async function handleMessage(
 
     if (text.startsWith("!remove")) {
       await executeRemoveUsers(context, standup);
+      return;
+    }
+
+    if (text.startsWith("!history")) {
+      const group = await standup.validateGroup(
+        context.conversationId,
+        context.tenantId
+      );
+      if (!group) {
+        await partialContext.send(
+          "No standup group registered. Use !register <onenote-link> to create one."
+        );
+        return;
+      }
+
+      const enable = text.includes("on");
+      const disable = text.includes("off");
+
+      if (!enable && !disable) {
+        const currentSetting = await group.getSaveHistory();
+        await partialContext.send(
+          `History saving is currently ${
+            currentSetting ? "enabled" : "disabled"
+          }. Use "!history on" or "!history off" to change.`
+        );
+        return;
+      }
+
+      await group.setSaveHistory(enable);
+      await partialContext.send(
+        `History saving has been ${enable ? "enabled" : "disabled"}.`
+      );
       return;
     }
 
@@ -103,16 +139,16 @@ export async function handleMessage(
   }
 
   console.log("Natural language command detected ", text);
-  let fnExecuted: string | null = null;
+  let didMessageUser: boolean = false;
   try {
     // Register functions for natural language command interpretation
     nlpPrompt.function("register", "Register a new standup group", async () => {
-      fnExecuted = "register";
+      didMessageUser = true;
       await executeRegister(context, standup, text);
     });
 
     nlpPrompt.function("add", "Add users to the standup group", async () => {
-      fnExecuted = "add";
+      didMessageUser = true;
       console.log("Adding users to the standup group");
       await executeAddUsers(context, standup);
     });
@@ -121,7 +157,7 @@ export async function handleMessage(
       "remove",
       "Remove users from the standup group",
       async () => {
-        fnExecuted = "remove";
+        didMessageUser = true;
         console.log("Removing users from the standup group");
         await executeRemoveUsers(context, standup);
       }
@@ -131,7 +167,7 @@ export async function handleMessage(
       "groupDetails",
       "Show standup group information",
       async () => {
-        fnExecuted = "groupDetails";
+        didMessageUser = true;
         console.log("Showing standup group information");
         await executeGroupDetails(context, standup);
       }
@@ -141,7 +177,7 @@ export async function handleMessage(
       "startStandup",
       "Start a new standup session",
       async () => {
-        fnExecuted = "startStandup";
+        didMessageUser = true;
         console.log("Starting a new standup session");
         await executeStartStandup(context, standup);
       }
@@ -151,7 +187,7 @@ export async function handleMessage(
       "restartStandup",
       "Restart the current standup session",
       async () => {
-        fnExecuted = "restartStandup";
+        didMessageUser = true;
         console.log("Restarting the current standup session");
         await executeStartStandup(context, standup, true);
       }
@@ -161,9 +197,65 @@ export async function handleMessage(
       "closeStandup",
       "End the current standup session",
       async () => {
-        fnExecuted = "closeStandup";
+        didMessageUser = true;
         console.log("Ending the current standup session");
         await executeCloseStandup(context, standup);
+      }
+    );
+
+    nlpPrompt.function(
+      "toggleHistory",
+      "Enable or disable history saving for the standup group",
+      {
+        type: "object",
+        properties: {
+          enable: {
+            type: "boolean",
+            description: "Enable or disable history saving",
+          },
+        },
+        required: ["enable"],
+      },
+      async (args: { enable: boolean }) => {
+        const { enable } = args;
+        didMessageUser = false;
+        console.log("Toggling history setting");
+        const group = await standup.validateGroup(
+          context.conversationId,
+          context.tenantId
+        );
+        if (!group) {
+          return "No standup group registered. Use !register <onenote-link> to create one.";
+        }
+
+        await group.setSaveHistory(enable);
+        return `History saving has been ${enable ? "enabled" : "disabled"}.`;
+      }
+    );
+
+    nlpPrompt.function(
+      "checkHistory",
+      "Check the current history saving setting",
+      async () => {
+        didMessageUser = true;
+        console.log("Checking history setting");
+        const group = await standup.validateGroup(
+          context.conversationId,
+          context.tenantId
+        );
+        if (!group) {
+          await partialContext.send(
+            "No standup group registered. Use !register <onenote-link> to create one."
+          );
+          return;
+        }
+
+        const currentSetting = await group.getSaveHistory();
+        await partialContext.send(
+          `History saving is currently ${
+            currentSetting ? "enabled" : "disabled"
+          }. You can change this with "enable history" or "disable history".`
+        );
       }
     );
 
@@ -172,21 +264,21 @@ export async function handleMessage(
       "Explain the purpose of the bot",
       async () => {
         console.log("Explaining the purpose of the bot");
-        return `I can help you conduct standups by managing your standup group, adding or removing users, and starting or closing standup sessions.`;
+        return `I can help you conduct standups by managing your standup group, adding or removing users, starting or closing standup sessions, and managing history settings.`;
       }
     );
 
     const result = await nlpPrompt.send(text);
     console.log("Result of the natural language command", result);
-    if (fnExecuted == null) {
+    if (!didMessageUser) {
       console.log("Sending the result of the natural language command");
-      await send(result.content);
+      await partialContext.send(result.content);
     } else {
       console.log("Did not send the result of the natural language command");
     }
   } catch (error) {
     console.error("Error processing natural language command:", error);
-    await send(
+    await partialContext.send(
       "I couldn't understand that command. Try using ! prefix for direct commands."
     );
   }

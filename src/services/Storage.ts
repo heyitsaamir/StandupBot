@@ -26,7 +26,7 @@ export class NoStorage implements IStandupStorage {
     };
   }
 
-  async appendStandupSummary(): Promise<Result<void>> {
+  async appendStandupSummary(summary: StandupSummary): Promise<Result<void>> {
     return {
       type: "success",
       data: undefined,
