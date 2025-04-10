@@ -9,6 +9,20 @@ import {
 } from "@microsoft/spark.cards";
 import { StandupResponse, User } from "./types";
 
+const convertTextToMarkdownList = (text: string): string => {
+  return text
+    .trim()
+    .split("\n")
+    .map((item) => item.trim())
+    .map((item) => {
+      // Remove any leading hyphens or asterisks even
+      const cleanedItem = item.replace(/^[\-\*]\s*/, "");
+      return cleanedItem;
+    })
+    .map((item) => `- ${item}`)
+    .join("\n");
+};
+
 export function createStandupSummaryCard(
   responses: Array<{
     userName: string;
@@ -24,13 +38,9 @@ export function createStandupSummaryCard(
     day: "numeric",
   });
 
-  const parkingLotItems = responses.flatMap(
-    (r) =>
-      r.parkingLot
-        ?.split("\n")
-        .filter((item) => item.trim())
-        .map((item) => `- ${item}`) ?? []
-  );
+  const parkingLotItems = responses
+    .flatMap((r) => convertTextToMarkdownList(r.parkingLot || "").trim())
+    .join("\n");
 
   const card: ICard = {
     type: "AdaptiveCard",
@@ -103,12 +113,7 @@ export function createStandupSummaryCard(
                   items: [
                     {
                       type: "TextBlock" as const,
-                      text: response.completedWork
-                        .trim()
-                        .split("\n")
-                        .map((item) => item.trim())
-                        .map((item) => `- ${item}`)
-                        .join("\n"),
+                      text: convertTextToMarkdownList(response.completedWork),
                       wrap: true,
                       weight: "Lighter",
                     },
@@ -136,12 +141,7 @@ export function createStandupSummaryCard(
                   items: [
                     {
                       type: "TextBlock" as const,
-                      text: response.plannedWork
-                        .trim()
-                        .split("\n")
-                        .map((item) => item.trim())
-                        .map((item) => `- ${item}`)
-                        .join("\n"),
+                      text: convertTextToMarkdownList(response.plannedWork),
                       wrap: true,
                       weight: "Lighter",
                     },
@@ -163,7 +163,7 @@ export function createStandupSummaryCard(
             } as ITextBlock,
             {
               type: "TextBlock" as const,
-              text: parkingLotItems.join("\n"),
+              text: parkingLotItems,
               wrap: true,
             } as ITextBlock,
           ]
