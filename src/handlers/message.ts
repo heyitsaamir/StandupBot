@@ -158,7 +158,7 @@ export async function handleMessage(
           return;
         }
 
-        let message = "# Current Parking Lot Items\n```\n";
+        let message = "**Current Parking Lot Items**\n```\n";
         result.data.parkingLotItems.forEach(({ item, userName }) => {
           message += `• ${item} (by ${userName})\n`;
         });
@@ -332,7 +332,7 @@ export async function handleMessage(
           return;
         }
 
-        let message = "# Current Parking Lot Items\n```\n";
+        let message = "**Current Parking Lot Items**\n```\n";
         result.data.parkingLotItems.forEach(({ item, userName }) => {
           message += `• ${item} (by ${userName})\n`;
         });

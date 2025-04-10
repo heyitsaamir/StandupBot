@@ -14,7 +14,7 @@ export async function executeStartStandup(
     const closeResult = await standup.closeStandup(
       conversationId,
       tenantId,
-      false
+      true
     );
     if (closeResult.type === "error") {
       await send(closeResult.message);

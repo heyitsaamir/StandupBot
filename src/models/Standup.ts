@@ -251,7 +251,7 @@ export class Standup {
   async closeStandup(
     conversationId: string,
     tenantId: string,
-    sendSummary: boolean = true
+    toBeRestarted: boolean = false
   ): Promise<Result<{ message: string; summary?: string }>> {
     const group = await this.validateGroup(conversationId, tenantId);
     if (!group) {
@@ -261,8 +261,8 @@ export class Standup {
       };
     }
 
-    const responses = await group.closeStandup();
-    if (!sendSummary) {
+    const responses = await group.closeStandup(toBeRestarted);
+    if (toBeRestarted) {
       return {
         type: "success",
         data: {

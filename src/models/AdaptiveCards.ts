@@ -45,12 +45,14 @@ export function createStandupCard(
               wrap: true,
               spacing: "medium" as const,
             },
-            {
-              type: "TextBlock" as const,
-              text: previousParkingLot.map((item) => `• ${item}`).join("\n"),
-              wrap: true,
-              spacing: "small" as const,
-            },
+            ...previousParkingLot
+              .flatMap((item) => item.trim().split("\n"))
+              .map((item) => ({
+                type: "TextBlock" as const,
+                text: `• ${item}`,
+                wrap: true,
+                spacing: "none" as const,
+              })),
           ]
         : []),
       {

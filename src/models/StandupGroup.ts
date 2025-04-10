@@ -100,7 +100,6 @@ export class StandupGroup {
     }
 
     this.isActive = true;
-    this.activeResponses = [];
     this.activeStandupActivityId = activityId || null;
 
     return {
@@ -129,7 +128,7 @@ export class StandupGroup {
       (r) => r.userId === userId
     );
     if (existingResponse) {
-      existingResponse.parkingLot = parkingLot;
+      existingResponse.parkingLot += `\n${parkingLot}`;
     } else {
       this.activeResponses.push({
         userId,
@@ -142,12 +141,14 @@ export class StandupGroup {
     return true;
   }
 
-  async closeStandup(): Promise<StandupResponse[]> {
+  async closeStandup(
+    toBeRestarted: boolean = false
+  ): Promise<StandupResponse[]> {
     if (!this.isActive) return [];
     this.isActive = false;
     const responses = [...this.activeResponses];
 
-    if (this.saveHistory) {
+    if (this.saveHistory && !toBeRestarted) {
       const summary: StandupSummary = {
         date: new Date(),
         participants: [...this.users],
@@ -159,7 +160,9 @@ export class StandupGroup {
       await this.persistentService.addStandupHistory(this, summary);
     }
 
-    this.activeResponses = [];
+    if (!toBeRestarted) {
+      this.activeResponses = [];
+    }
     this.activeStandupActivityId = null;
     return responses;
   }
