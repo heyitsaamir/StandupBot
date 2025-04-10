@@ -61,7 +61,11 @@ export async function executeCloseStandup(
     return;
   }
 
+  await send(result.message);
   if (result.data.summary) {
-    await send(result.data.summary);
+    await send({
+      type: "message" as const,
+      attachments: [cardAttachment("adaptive", result.data.summary)],
+    });
   }
 }

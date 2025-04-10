@@ -1,11 +1,178 @@
 import {
+  Element,
   ExecuteAction,
   ICard,
+  ITextBlock,
   SubmitAction,
   TaskFetchAction,
   TaskFetchData,
 } from "@microsoft/spark.cards";
 import { StandupResponse, User } from "./types";
+
+export function createStandupSummaryCard(
+  responses: Array<{
+    userName: string;
+    completedWork: string;
+    plannedWork: string;
+    parkingLot?: string;
+  }>
+): ICard {
+  const date = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const parkingLotItems = responses.flatMap(
+    (r) =>
+      r.parkingLot
+        ?.split("\n")
+        .filter((item) => item.trim())
+        .map((item) => `- ${item}`) ?? []
+  );
+
+  const card: ICard = {
+    type: "AdaptiveCard",
+    $schema: "https://adaptivecards.io/schemas/adaptive-card.json",
+    version: "1.5",
+    body: [
+      {
+        type: "ColumnSet",
+        columns: [
+          {
+            type: "Column",
+            width: "stretch",
+            items: [
+              {
+                type: "TextBlock" as const,
+                text: "**Standup**",
+                wrap: true,
+                style: "heading",
+              },
+            ],
+          },
+          {
+            type: "Column",
+            width: "auto",
+            items: [
+              {
+                type: "TextBlock" as const,
+                text: date,
+                wrap: true,
+              },
+            ],
+          },
+        ],
+      },
+      ...responses.flatMap((response): Element[] => [
+        {
+          type: "TextBlock" as const,
+          text: `**${response.userName}**`,
+          wrap: true,
+          separator: true,
+        },
+        {
+          type: "Table",
+          columns: [
+            {
+              type: "Column",
+              width: 2,
+            },
+            {
+              type: "Column",
+              width: 6,
+            },
+          ],
+          rows: [
+            {
+              type: "TableRow" as const,
+              cells: [
+                {
+                  type: "TableCell" as const,
+                  items: [
+                    {
+                      type: "TextBlock" as const,
+                      text: "Yesterday",
+                      wrap: true,
+                    },
+                  ],
+                },
+                {
+                  type: "TableCell" as const,
+                  items: [
+                    {
+                      type: "TextBlock" as const,
+                      text: response.completedWork
+                        .trim()
+                        .split("\n")
+                        .map((item) => item.trim())
+                        .map((item) => `- ${item}`)
+                        .join("\n"),
+                      wrap: true,
+                      weight: "Lighter",
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: "TableRow" as const,
+              cells: [
+                {
+                  type: "TableCell" as const,
+                  items: [
+                    {
+                      type: "TextBlock" as const,
+                      text: "Today",
+                      wrap: true,
+                      style: "columnHeader",
+                      weight: "Bolder",
+                    },
+                  ],
+                },
+                {
+                  type: "TableCell" as const,
+                  items: [
+                    {
+                      type: "TextBlock" as const,
+                      text: response.plannedWork
+                        .trim()
+                        .split("\n")
+                        .map((item) => item.trim())
+                        .map((item) => `- ${item}`)
+                        .join("\n"),
+                      wrap: true,
+                      weight: "Lighter",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        } as any,
+      ]),
+      ...(parkingLotItems.length > 0
+        ? [
+            {
+              type: "TextBlock" as const,
+              text: "Parking Lot",
+              wrap: true,
+              style: "heading",
+              separator: true,
+            } as ITextBlock,
+            {
+              type: "TextBlock" as const,
+              text: parkingLotItems.join("\n"),
+              wrap: true,
+            } as ITextBlock,
+          ]
+        : []),
+    ],
+  };
+
+  return card;
+}
 
 export function createStandupCard(
   completedResponses: string[] = [],
@@ -17,13 +184,13 @@ export function createStandupCard(
     version: "1.5",
     body: [
       {
-        type: "TextBlock",
+        type: "TextBlock" as const,
         text: "Standup Session",
         size: "large",
         weight: "bolder",
       },
       {
-        type: "TextBlock",
+        type: "TextBlock" as const,
         text: "Enter your details by clicking the button below.",
         wrap: true,
       },
@@ -83,13 +250,13 @@ export function createPageSelectionCard(
     version: "1.5",
     body: [
       {
-        type: "TextBlock",
+        type: "TextBlock" as const,
         text: "Select OneNote Page for Standup",
         size: "large",
         weight: "bolder",
       },
       {
-        type: "TextBlock",
+        type: "TextBlock" as const,
         text: "Choose a page to store your standup notes:",
         wrap: true,
       },
@@ -128,13 +295,13 @@ export function createTaskModule(
     version: "1.5",
     body: [
       {
-        type: "TextBlock",
+        type: "TextBlock" as const,
         text: `${user.name}'s Standup Update`,
         size: "large",
         weight: "bolder",
       },
       {
-        type: "TextBlock",
+        type: "TextBlock" as const,
         text: "What did you do since last standup?",
         wrap: true,
       },
@@ -148,7 +315,7 @@ export function createTaskModule(
         value: existingResponse?.completedWork,
       },
       {
-        type: "TextBlock",
+        type: "TextBlock" as const,
         text: "What do you plan to do today?",
         wrap: true,
       },
@@ -162,7 +329,7 @@ export function createTaskModule(
         value: existingResponse?.plannedWork,
       },
       {
-        type: "TextBlock",
+        type: "TextBlock" as const,
         text: "Parking Lot",
         wrap: true,
       },

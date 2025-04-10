@@ -1,7 +1,8 @@
+import { ICard } from "@microsoft/spark.cards";
 import { PersistentStandupService } from "../services/PersistentStandupService";
 import { StandupGroupManager } from "../services/StandupGroupManager";
 import { IStandupStorage } from "../services/Storage";
-import { createStandupCard } from "./AdaptiveCards";
+import { createStandupCard, createStandupSummaryCard } from "./AdaptiveCards";
 import { StandupGroup } from "./StandupGroup";
 import { Result, StandupResponse, User } from "./types";
 
@@ -252,7 +253,12 @@ export class Standup {
     conversationId: string,
     tenantId: string,
     toBeRestarted: boolean = false
-  ): Promise<Result<{ message: string; summary?: string }>> {
+  ): Promise<
+    Result<{
+      message: string;
+      summary?: ICard;
+    }>
+  > {
     const group = await this.validateGroup(conversationId, tenantId);
     if (!group) {
       return {
@@ -278,7 +284,6 @@ export class Standup {
       };
     }
 
-    // Format summary for chat display
     const users = await group.getUsers();
     const formattedResponses = responses.map((r: StandupResponse) => {
       const user = users.find((u: User) => u.id === r.userId);
@@ -290,81 +295,22 @@ export class Standup {
       };
     });
 
-    // Build summary manually
-    const summaryText = this.buildSummary(formattedResponses);
-
-    // Persist to group's storage
     const persistResult = await group.persistStandup();
 
+    let message;
     if (persistResult.type === "error") {
-      const message = `Standup closed successfully, but failed to save to storage: ${persistResult.message}`;
-      return {
-        type: "success",
-        data: {
-          message,
-          summary: summaryText,
-        },
-        message,
-      };
+      message = `Standup closed successfully, but failed to save to storage: ${persistResult.message}`;
+    } else {
+      message = "Standup closed and saved successfully.";
     }
-
     return {
       type: "success",
       data: {
-        message: "Standup closed and saved successfully.",
-        summary: summaryText,
+        message,
+        summary: createStandupSummaryCard(formattedResponses),
       },
-      message: "Standup closed and saved successfully.",
+      message,
     };
-  }
-
-  private buildSummary(
-    responses: Array<{
-      userName: string;
-      completedWork: string;
-      plannedWork: string;
-      parkingLot?: string;
-    }>
-  ): string {
-    let summary = "# Standup summary\n";
-
-    // Add each user's work
-    responses.forEach((response, index) => {
-      summary += `**${response.userName}**\n`;
-
-      summary += "```\n"; // Block start
-      // Format Completed Work as a list
-      if (response.completedWork) {
-        summary += `Completed Work:\n---\n${response.completedWork}\n\n`;
-      }
-
-      if (response.plannedWork) {
-        summary += `Planned Work:\n---\n${response.plannedWork}\n\n`;
-      }
-
-      summary += "```\n"; // Block end
-    });
-
-    // Add parking lot if items exist
-    const parkingLotItems = responses.flatMap(
-      (r) =>
-        r.parkingLot
-          ?.split("\n")
-          .map((item) => ({ parkingLotItem: item.trim(), user: r.userName }))
-          .filter((item) => item.parkingLotItem) ?? // Filter out empty items
-        []
-    );
-
-    if (parkingLotItems.length > 0) {
-      summary += "# Parking Lot\n";
-      summary += "```\n"; // Block start
-      for (const { parkingLotItem, user } of parkingLotItems) {
-        summary += `  - ${parkingLotItem} (by ${user})\n`;
-      }
-      summary += "```\n"; // Block end
-    }
-
-    return summary.trim(); // Trim trailing whitespace
   }
 
   async validateGroup(
