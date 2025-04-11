@@ -173,7 +173,7 @@ export class A2AServer {
     // Middleware
     app.use(express.json()); // Parse JSON bodies
 
-    app.get("/.well-known/agent.json", (req, res) => {
+    app.get(`/.well-known/agent.json`, (req, res) => {
       res.json(this.card);
     });
 
@@ -190,6 +190,11 @@ export class A2AServer {
           `A2A Server listening on port ${port} at path ${this.basePath}`
         );
       });
+    } else {
+      console.log(
+        'Not starting A2A server, but using path "%s"',
+        this.basePath
+      );
     }
 
     return app;
