@@ -14,7 +14,7 @@ import {
   InMemoryTaskStore,
   type TaskAndHistory,
   type TaskStore,
-} from "./store.js";
+} from "./store";
 // Import TaskHandler and the original TaskContext to derive the new one
 import { A2AError } from "./error";
 import {

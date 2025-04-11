@@ -378,6 +378,8 @@ export interface Artifact {
    */
   name?: string | null;
 
+  mimeType?: string | null;
+
   /**
    * Optional description of the artifact.
    * @default null
