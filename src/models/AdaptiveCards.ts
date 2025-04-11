@@ -39,7 +39,8 @@ export function createStandupSummaryCard(
   });
 
   const parkingLotItems = responses
-    .flatMap((r) => convertTextToMarkdownList(r.parkingLot || "").trim())
+    .filter((r) => r.parkingLot && r.parkingLot.trim() !== "")
+    .map((r) => convertTextToMarkdownList(r.parkingLot || "").trim())
     .join("\n");
 
   const card: ICard = {
