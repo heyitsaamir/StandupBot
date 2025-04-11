@@ -1,16 +1,23 @@
 import { StandupGroup } from "../models/StandupGroup";
 import {
-  CosmosStorage,
   CosmosStorageFactory,
   GroupStorageItem,
   HistoryStorageItem,
+  IStorage,
   StandupSummary,
 } from "./CosmosStorage";
+import { InMemoryStorageFactory } from "./InMemoryStorage";
 import { IStandupStorage, NoStorage } from "./Storage";
 
+const useLocalStorage = process.env.USE_LOCAL_STORAGE === "true";
+
+if (useLocalStorage) {
+  console.warn("Using in-memory storage. This is not suitable for production.");
+}
+
 export class PersistentStandupService {
-  private groupStorage!: CosmosStorage<string, GroupStorageItem>;
-  private historyStorage!: CosmosStorage<string, HistoryStorageItem>;
+  private groupStorage!: IStorage<string, GroupStorageItem>;
+  private historyStorage!: IStorage<string, HistoryStorageItem>;
 
   constructor(
     private databaseName: string = "StandupDB",
@@ -29,19 +36,27 @@ export class PersistentStandupService {
   }
 
   async initialize(connectionString: string) {
-    // Initialize the CosmosDB client
-    CosmosStorageFactory.initialize(connectionString);
+    let factory: typeof CosmosStorageFactory | typeof InMemoryStorageFactory =
+      CosmosStorageFactory;
+    if (useLocalStorage) {
+      factory = InMemoryStorageFactory;
+    } else {
+      // Initialize the CosmosDB client
+      factory.initialize(connectionString);
+    }
 
     // Get storage instances for groups and history
-    this.groupStorage = await CosmosStorageFactory.getStorage<
-      string,
-      GroupStorageItem
-    >(this.databaseName, this.groupContainer, "/tenantId");
+    this.groupStorage = await factory.getStorage<string, GroupStorageItem>(
+      this.databaseName,
+      this.groupContainer,
+      "/tenantId"
+    );
 
-    this.historyStorage = await CosmosStorageFactory.getStorage<
-      string,
-      HistoryStorageItem
-    >(this.databaseName, this.historyContainer, "/tenantId");
+    this.historyStorage = await factory.getStorage<string, HistoryStorageItem>(
+      this.databaseName,
+      this.historyContainer,
+      "/tenantId"
+    );
   }
 
   async loadGroup(
