@@ -12,9 +12,10 @@
   "scripts": {
     "clean": "npx rimraf ./dist",
     "build": "npx tsup",
-    "postbuild": "cp package.json dist/package.json && cp package-lock.json dist/package-lock.json",
+    "postbuild": "copy package.json dist/package.json && copy package-lock.json dist/package-lock.json",
     "start": "node .",
     "dev": "npx nodemon -w \"./src/**\" -e ts --exec \"node -r ts-node/register -r dotenv/config ./src/index.ts\"",
+    "dev:personal-agent": "npx nodemon -w \"./src/multi-agent/personal-agent/**\" -e ts --exec \"node -r ts-node/register -r dotenv/config ./src/multi-agent/personal-agent/index.ts\"",
     "dev:teamsfx": "npx env-cmd --silent -f .env npm run dev",
     "dev:teamsfx:testtool": "npx env-cmd --silent -f .env npm run dev",
     "dev:teamsfx:launch-testtool": "npx env-cmd --silent -f env/.env.testtool teamsapptester start"
